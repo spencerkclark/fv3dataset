@@ -45,7 +45,8 @@ in `to_zarr` method:
 ```
 
 Note for large datasets there are more efficient ways to do this in a
-distributed fashion.  For that, see `xpartition`.
+distributed fashion.  For that, see
+[`xpartition`](https://github.com/spencerkclark/xpartition).
 
 ## Installation
 
