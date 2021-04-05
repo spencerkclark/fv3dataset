@@ -31,9 +31,7 @@ def _history_filenames(subtiles, tape):
         for tile in TILES:
             for subtile in range(subtiles):
                 file = HISTORY_PATTERN_SUBTILES.format(
-                    tape=tape,
-                    tile=tile,
-                    subtile=subtile
+                    tape=tape, tile=tile, subtile=subtile
                 )
                 files.append(file)
     return files

@@ -17,7 +17,7 @@ HORIZONTAL_DIMS = (
     "grid_xt",
     "grid_yt",
     "grid_x",
-    "grid_y"
+    "grid_y",
 )
 PATTERN = "{tape}.tile{tile}.nc"
 TILES = range(1, 7)
@@ -25,7 +25,9 @@ VERTICAL_DIMS = ("pfull", "phalf", "plev")
 
 
 def expand_dims_for_certain_variables(ds, variables, dims):
-    return ds.assign({variable: ds[variable].expand_dims(dims) for variable in variables})
+    return ds.assign(
+        {variable: ds[variable].expand_dims(dims) for variable in variables}
+    )
 
 
 def shares_dims(da, dims):
@@ -94,9 +96,7 @@ class HistoryDataset:
     @functools.cached_property
     def sample_dataset(self):
         return expand_dims_for_certain_variables(
-            self._sample_dataset,
-            self.tile_varying_variables,
-            self.tile_dim
+            self._sample_dataset, self.tile_varying_variables, self.tile_dim
         )
 
     @property
@@ -132,19 +132,35 @@ class HistoryDataset:
 
     @functools.cached_property
     def chunked_variables(self):
-        return [da.name for da in self.sample_data_arrays if has_dims(da, self.combining_dims)]
+        return [
+            da.name
+            for da in self.sample_data_arrays
+            if has_dims(da, self.combining_dims)
+        ]
 
     @functools.cached_property
     def unchunked_variables(self):
-        return [da.name for da in self.sample_data_arrays if da.name not in self.chunked_variables]
+        return [
+            da.name
+            for da in self.sample_data_arrays
+            if da.name not in self.chunked_variables
+        ]
 
     @functools.cached_property
     def chunked_variables_2d(self):
-        return [name for name in self.chunked_variables if not shares_dims(self.sample_dataset[name], self.vertical_dims)]
+        return [
+            name
+            for name in self.chunked_variables
+            if not shares_dims(self.sample_dataset[name], self.vertical_dims)
+        ]
 
     @functools.cached_property
     def chunked_variables_3d(self):
-        return [name for name in self.chunked_variables if shares_dims(self.sample_dataset[name], self.vertical_dims)]
+        return [
+            name
+            for name in self.chunked_variables
+            if shares_dims(self.sample_dataset[name], self.vertical_dims)
+        ]
 
     @functools.cached_property
     def non_chunked_dimension_coordinates(self):
@@ -152,11 +168,19 @@ class HistoryDataset:
 
     @functools.cached_property
     def time_varying_coordinates(self):
-        return [name for name in self.unchunked_variables if has_dims(self.sample_dataset[name], self.time_dim)]
+        return [
+            name
+            for name in self.unchunked_variables
+            if has_dims(self.sample_dataset[name], self.time_dim)
+        ]
 
     @functools.cached_property
     def tile_varying_coordinates(self):
-        return [name for name in self.unchunked_variables if has_dims(self.sample_dataset[name], self.tile_dim)]
+        return [
+            name
+            for name in self.unchunked_variables
+            if has_dims(self.sample_dataset[name], self.tile_dim)
+        ]
 
     def rechunk_da(self, da, target_chunk_size):
         chunks = {}
@@ -221,36 +245,44 @@ class HistoryDataset:
                 filenames,
                 self.time_varying_coordinates,
                 concat_dim=[self.time_dim],
-                combine="by_coords"
+                combine="by_coords",
             ).load()
 
     def _open_tile_varying_coordinates(self):
         filenames = self.files.isel({self.time_dim: 0}).values.tolist()
-        return targeted_open_mfdataset(
-            filenames,
-            self.tile_varying_coordinates,
-            concat_dim=[self.tile_dim],
-            combine="nested"
-        ).assign({self.tile_dim: range(6)}).load()
+        return (
+            targeted_open_mfdataset(
+                filenames,
+                self.tile_varying_coordinates,
+                concat_dim=[self.tile_dim],
+                combine="nested",
+            )
+            .assign({self.tile_dim: range(6)})
+            .load()
+        )
 
     def initialize_store(self, store):
         ds = self.to_dask()
         ds.to_zarr(store, compute=False)
 
     def to_dask(self):
-        ds = xr.merge([
-            self._open_all_chunked_variables(),
-            self._open_time_varying_coordinates(),
-            self._open_tile_varying_coordinates(),
-            self._sample_dataset[self.non_chunked_dimension_coordinates]
-        ])
+        ds = xr.merge(
+            [
+                self._open_all_chunked_variables(),
+                self._open_time_varying_coordinates(),
+                self._open_tile_varying_coordinates(),
+                self._sample_dataset[self.non_chunked_dimension_coordinates],
+            ]
+        )
         return self.rechunk(ds)
 
     def _write_partition(self, ranks, rank, variables, store):
         if variables:
             ds = self.to_dask()[variables]
             sample = variables[0]
-            partition = ds[sample].partition.indexers(ranks, rank, [self.tile_dim, self.time_dim])
+            partition = ds[sample].partition.indexers(
+                ranks, rank, [self.tile_dim, self.time_dim]
+            )
             if partition is None:
                 print(f"No work to be done on rank {rank} for {', '.join(variables)}.")
             else:

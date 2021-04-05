@@ -90,7 +90,7 @@ def tapes_to_files(root, combined=None):
     tapes = collections.defaultdict(list)
     for name in names:
         if ".tile" in name:
-            tape = name[:name.find(".tile")]
+            tape = name[: name.find(".tile")]
             tapes[tape].append(name)
     return tapes
 
