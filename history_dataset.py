@@ -3,52 +3,54 @@ import functools
 import os
 import typing
 
-import numpy as np
+import dask
 import xarray as xr
 
-import xpartition
+import xpartition  # noqa
 
+
+HORIZONTAL_DIMS = (
+    "grid_xt_coarse",
+    "grid_yt_coarse",
+    "grid_x_coarse",
+    "grid_y_coarse",
+    "grid_xt",
+    "grid_yt",
+    "grid_x",
+    "grid_y"
+)
 PATTERN = "{tape}.tile{tile}.nc"
 TILES = range(1, 7)
+VERTICAL_DIMS = ("pfull", "phalf", "plev")
+
 
 def expand_dims_for_certain_variables(ds, variables, dims):
     return ds.assign({variable: ds[variable].expand_dims(dims) for variable in variables})
 
-def rechunk_da(da, target_chunks):
-    chunks = {dim: chunks for dim, chunks in target_chunks.items() if dim in da.dims}
-    return da.chunk(chunks)
 
 def shares_dims(da, dims):
     return bool(set(da.dims).intersection(set(dims)))
+
 
 def has_dims(da, dims):
     if isinstance(dims, str):
         dims = [dims]
     return all(dim in da.dims for dim in dims)
 
+
 def is_dimension_coordinate(v):
     return v.name in v.dims
+
 
 def targeted_open_mfdataset(filenames, keep_variables, **kwargs):
     preprocess = lambda ds: ds[keep_variables]
     return xr.open_mfdataset(filenames, preprocess=preprocess, **kwargs)
 
-def full_region(ds):
-    return {dim: slice(None, None) for dim in ds.dims}
-
-def total_chunks(da):
-    return np.product([len(chunks) for chunks in da.chunks])
-
-def factorize(num):
-    return [n for n in range(1, num + 1) if num % n == 0]
-
-def closest_factors(num):
-    factors = factorize(num)
-    a = factors[np.argmin(np.abs(np.array(factors) - np.sqrt(num)))]
-    b = num // a
-    return a, b
 
 def safe_concat(datasets, **kwargs):
+    """Concatenate datasets together, automaticalally dropping
+    any variables that are not common to all provided datasets.
+    """
     common = set.intersection(*[set(dataset.variables) for dataset in datasets])
     datasets = [ds[list(common)] for ds in datasets]
     return xr.concat(datasets, **kwargs)
@@ -58,15 +60,14 @@ def safe_concat(datasets, **kwargs):
 class HistoryDataset:
     tape: str
     directories: typing.Sequence[str]
-    target_chunks_2d: typing.Dict[typing.Hashable, int]
-    target_chunks_3d: typing.Dict[typing.Hashable, int]
+    target_chunk_size: str = "128Mi"
     time_dim: typing.Hashable = "time"
     tile_dim: typing.Hashable = "tile"
     x_dim: typing.Hashable = "grid_xt_coarse"
     y_dim: typing.Hashable = "grid_yt_coarse"
     z_dim: typing.Hashable = "pfull"
-    horizontal_dims: typing.Sequence[typing.Hashable] = ("grid_xt_coarse", "grid_yt_coarse", "grid_x_coarse", "grid_y_coarse", "grid_xt", "grid_yt", "grid_x", "grid_y")
-    vertical_dims: typing.Sequence[typing.Hashable] = ("pfull", "phalf", "plev")
+    horizontal_dims: typing.Sequence[typing.Hashable] = HORIZONTAL_DIMS
+    vertical_dims: typing.Sequence[typing.Hashable] = VERTICAL_DIMS
     tiles: int = 6
 
     @property
@@ -109,24 +110,6 @@ class HistoryDataset:
     @property
     def static_dims(self):
         return self.dims - self.combining_dims
-
-    @property
-    def netcdf_sizes(self):
-        return self.sample_dataset.sizes
-
-    @property
-    def total_sizes(self):
-        sizes = {dim: size for dim, size in self.netcdf_sizes.items() if dim in self.static_dims}
-        sizes[self.tile_dim] = self.tiles
-        sizes[self.time_dim] = self.segments * self.netcdf_sizes[self.time_dim]
-        return sizes
-
-    @property
-    def netcdf_chunks(self):
-        chunks = {dim: size for dim, size in self.netcdf_sizes.items() if dim in self.static_dims}
-        chunks[self.tile_dim] = 1
-        chunks[self.time_dim] = 1
-        return chunks
 
     @property
     def sample_data_arrays(self):
@@ -175,52 +158,41 @@ class HistoryDataset:
     def tile_varying_coordinates(self):
         return [name for name in self.unchunked_variables if has_dims(self.sample_dataset[name], self.tile_dim)]
 
-    def rechunk_variables(self, ds, variables, chunks):
+    def rechunk_da(self, da, target_chunk_size):
+        chunks = {}
+        dims = set(da.dims)
+        if self.time_dim in dims:
+            chunks[self.time_dim] = "auto"
+            dims.remove(self.time_dim)
+        if self.tile_dim in dims:
+            chunks[self.tile_dim] = "auto"
+            dims.remove(self.tile_dim)
+        for dim in dims:
+            chunks[dim] = "auto"
+        with dask.config.set({"array.chunk-size": target_chunk_size}):
+            return da.chunk(chunks)
+
+    def rechunk_variables(self, ds, variables):
         rechunked = {}
         for variable in variables:
-            rechunked[variable] = rechunk_da(ds[variable], chunks)
+            rechunked[variable] = self.rechunk_da(ds[variable], self.target_chunk_size)
         return ds.assign(rechunked)
 
     def rechunk(self, ds):
-        ds = self.rechunk_variables(ds, self.chunked_variables_2d, self.target_chunks_2d)
-        ds = self.rechunk_variables(ds, self.chunked_variables_3d, self.target_chunks_3d)
+        ds = self.rechunk_variables(ds, self.chunked_variables_2d)
+        ds = self.rechunk_variables(ds, self.chunked_variables_3d)
         return ds
 
-    @functools.cached_property
-    def combined_template_dataset(self):
-        tiled = xr.concat(
-            self.tiles * [self.sample_dataset],
-            dim=self.tile_dim,
-            data_vars="minimal"
-        )
-        segmented = xr.concat(
-            self.segments * [tiled],
-            dim=self.time_dim,
-            data_vars="minimal"
-        )
-        return self.rechunk(segmented)
-
-    def _validate_chunks(self, ranks):
-        assert ranks % self.tiles == 0
-
-        time_size = self.netcdf_sizes[self.time_dim]
-        time_chunks_2d = self.target_chunks_2d[self.time_dim]
-        time_chunks_3d = self.target_chunks_3d[self.time_dim]
-        assert time_size % time_chunks_2d == 0
-        assert time_size % time_chunks_3d == 0
-
-        time_partitions = ranks // self.tiles
-        assert (time_size // time_chunks_2d) % time_partitions == 0
-        assert (time_size // time_chunks_3d) % time_partitions == 0
-
     def _open_dataset_2d(self, filename):
-        chunks = {self.time_dim: self.target_chunks_2d[self.time_dim]}
-        ds = xr.open_dataset(filename, chunks=chunks)
+        chunks = {self.time_dim: "auto"}
+        with dask.config.set({"array.chunk-size": self.target_chunk_size}):
+            ds = xr.open_dataset(filename, chunks=chunks)
         return ds[self.chunked_variables_2d].expand_dims(self.tile_dim)
 
     def _open_dataset_3d(self, filename):
-        chunks = {self.time_dim: self.target_chunks_3d[self.time_dim]}
-        ds = xr.open_dataset(filename, chunks=chunks)
+        chunks = {self.time_dim: "auto"}
+        with dask.config.set({"array.chunk-size": self.target_chunk_size}):
+            ds = xr.open_dataset(filename, chunks=chunks)
         return ds[self.chunked_variables_3d].expand_dims(self.tile_dim)
 
     def _open_chunked_variables(self, filename):
@@ -242,12 +214,15 @@ class HistoryDataset:
 
     def _open_time_varying_coordinates(self):
         filenames = self.files.isel({self.tile_dim: 0}).values.tolist()
-        return targeted_open_mfdataset(
-            filenames,
-            self.time_varying_coordinates,
-            concat_dim=[self.time_dim],
-            combine="by_coords"
-        ).load()
+        if not self.chunked_variables_2d and not self.chunked_variables_3d:
+            return xr.Dataset()
+        else:
+            return targeted_open_mfdataset(
+                filenames,
+                self.time_varying_coordinates,
+                concat_dim=[self.time_dim],
+                combine="by_coords"
+            ).load()
 
     def _open_tile_varying_coordinates(self):
         filenames = self.files.isel({self.time_dim: 0}).values.tolist()
@@ -285,29 +260,3 @@ class HistoryDataset:
     def write_partition(self, ranks, rank, store):
         self._write_partition(ranks, rank, self.chunked_variables_2d, store)
         self._write_partition(ranks, rank, self.chunked_variables_3d, store)
-
-    def print_expected_chunk_sizes(self):
-        x_size = self.total_sizes[self.x_dim]
-        y_size = self.total_sizes[self.y_dim]
-        z_size = self.total_sizes[self.z_dim]
-        tile_size_2d = self.target_chunks_2d[self.tile_dim]
-        tile_size_3d = self.target_chunks_3d[self.tile_dim]
-        t_size_2d = self.target_chunks_2d[self.time_dim]
-        t_size_3d = self.target_chunks_3d[self.time_dim]
-        face_size = x_size * y_size
-        chunk_sizes_2d = tile_size_2d * t_size_2d * face_size * 4.0 / 1.0e6
-        chunk_sizes_3d = tile_size_3d * t_size_3d * face_size * z_size * 4.0 / 1.0e6
-        print(f"Chunk size for 2D variables is {chunk_sizes_2d} MB; "
-              f"chunk size for 3D variables is {chunk_sizes_3d} MB.")
-
-    def print_possible_chunk_sizes(self, ranks):
-        assert ranks % self.tiles == 0
-        time_partitions = ranks // self.tiles
-
-        time_size = self.netcdf_sizes[self.time_dim]
-        factors = factorize(time_size)
-        return [factor for factor in factors if (time_size // factor) % time_partitions == 0]
-
-    def print_possible_ranks(self):
-        factors = factorize(self._total_dask_blocks)
-        print([factor for factor in factors if factor % self.tiles == 0])
