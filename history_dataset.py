@@ -6,8 +6,6 @@ import typing
 import dask
 import xarray as xr
 
-import xpartition  # noqa
-
 
 HORIZONTAL_DIMS = (
     "grid_xt_coarse",
@@ -277,6 +275,10 @@ class HistoryDataset:
         return self.rechunk(ds)
 
     def _write_partition(self, ranks, rank, variables, store):
+        try:
+            import xpartition  # noqa
+        except ImportError:
+            raise ImportError("Using _write_partition requires xpartition be installed.")
         if variables:
             ds = self.to_dask()[variables]
             sample = variables[0]
