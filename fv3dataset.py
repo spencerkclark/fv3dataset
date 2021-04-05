@@ -1,4 +1,3 @@
-import logging
 import os
 
 import history
@@ -38,8 +37,9 @@ def _history_filenames(subtiles, tape):
 
 
 class FV3Dataset:
-    def __init__(self, root):
+    def __init__(self, root, target_chunk_size="128Mi"):
         self.root = root
+        self.target_chunk_size = target_chunk_size
         self.tiles = TILES
 
     @property
@@ -84,11 +84,10 @@ class FV3Dataset:
         datasets = {}
         for tape in self.combined_tapes:
             datasets[tape] = self._to_dask(tape, self.root)
-            # try:
-            #     datasets[tape] = self._to_dask(tape, self.root)
-            # except ValueError:
-            #     print(f"Could not convert {tape} to dask.")
         return datasets
+
+    def tape_to_dask(self, tape):
+        return self._to_dask(tape, self.root)
 
     def _to_dask(self, tape, root):
         """Lazily open a combined dataset for a given tape.
@@ -97,4 +96,6 @@ class FV3Dataset:
         through the root directory first.
         """
         paths = history.segment_paths(root)
-        return HistoryDataset(tape, paths).to_dask()
+        return HistoryDataset(
+            tape, paths, target_chunk_size=self.target_chunk_size
+        ).to_dask()
