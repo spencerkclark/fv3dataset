@@ -1,9 +1,9 @@
 import os
 
-import history
-
 from functools import cached_property
-from history_dataset import HistoryDataset
+
+from . import history
+from .history_dataset import HistoryDataset
 
 
 def _subtiles(layout):
