@@ -1,9 +1,16 @@
 import os
 
-from functools import cached_property
-
 from . import history
 from .history_dataset import HistoryDataset
+
+
+# For compatibility with Python < 3.8.  Default to using a simple property
+# decorator.  This will be slightly slower for repeated access, but at least it
+# will work.
+try:
+    from functools import cached_property
+except ImportError:
+    cached_property = property
 
 
 def _subtiles(layout):

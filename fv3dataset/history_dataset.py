@@ -1,10 +1,15 @@
 import dataclasses
-import functools
 import os
 import typing
 
 import dask
 import xarray as xr
+
+
+try:
+    from functools import cached_property
+except ImportError:
+    cached_property = property
 
 
 HORIZONTAL_DIMS = (
@@ -87,11 +92,11 @@ class HistoryDataset:
         indexers = {self.time_dim: -1, self.tile_dim: 0}
         return self.files.isel(indexers).item()
 
-    @functools.cached_property
+    @cached_property
     def _sample_dataset(self):
         return xr.open_dataset(self._sample_file, chunks={})
 
-    @functools.cached_property
+    @cached_property
     def sample_dataset(self):
         return expand_dims_for_certain_variables(
             self._sample_dataset, self.tile_varying_variables, self.tile_dim
@@ -124,11 +129,11 @@ class HistoryDataset:
     def is_tile_varying(self, da):
         return shares_dims(da, self.horizontal_dims) and not is_dimension_coordinate(da)
 
-    @functools.cached_property
+    @cached_property
     def tile_varying_variables(self):
         return [da.name for da in self._sample_data_arrays if self.is_tile_varying(da)]
 
-    @functools.cached_property
+    @cached_property
     def chunked_variables(self):
         return [
             da.name
@@ -136,7 +141,7 @@ class HistoryDataset:
             if has_dims(da, self.combining_dims)
         ]
 
-    @functools.cached_property
+    @cached_property
     def unchunked_variables(self):
         return [
             da.name
@@ -144,7 +149,7 @@ class HistoryDataset:
             if da.name not in self.chunked_variables
         ]
 
-    @functools.cached_property
+    @cached_property
     def chunked_variables_2d(self):
         return [
             name
@@ -152,7 +157,7 @@ class HistoryDataset:
             if not shares_dims(self.sample_dataset[name], self.vertical_dims)
         ]
 
-    @functools.cached_property
+    @cached_property
     def chunked_variables_3d(self):
         return [
             name
@@ -160,11 +165,11 @@ class HistoryDataset:
             if shares_dims(self.sample_dataset[name], self.vertical_dims)
         ]
 
-    @functools.cached_property
+    @cached_property
     def non_chunked_dimension_coordinates(self):
         return [dim for dim in self._sample_dataset.dims if dim != self.time_dim]
 
-    @functools.cached_property
+    @cached_property
     def time_varying_coordinates(self):
         return [
             name
@@ -172,7 +177,7 @@ class HistoryDataset:
             if has_dims(self.sample_dataset[name], self.time_dim)
         ]
 
-    @functools.cached_property
+    @cached_property
     def tile_varying_coordinates(self):
         return [
             name
