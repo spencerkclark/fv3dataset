@@ -66,6 +66,7 @@ class HistoryDataset:
     tape: str
     directories: typing.Sequence[str]
     target_chunk_size: str = "128Mi"
+    auto_chunk_dims: typing.Sequence[typing.Hashable] = ("time", "tile")
     time_dim: typing.Hashable = "time"
     tile_dim: typing.Hashable = "tile"
     x_dim: typing.Hashable = "grid_xt_coarse"
@@ -185,24 +186,42 @@ class HistoryDataset:
             if has_dims(self.sample_dataset[name], self.tile_dim)
         ]
 
-    def rechunk_da(self, da, target_chunk_size):
+    def _rechunk_da(self, da, auto_chunk_dim, already_autochunked_dims):
         chunks = {}
-        dims = set(da.dims)
-        if self.time_dim in dims:
-            chunks[self.time_dim] = "auto"
-            dims.remove(self.time_dim)
-        if self.tile_dim in dims:
-            chunks[self.tile_dim] = "auto"
-            dims.remove(self.tile_dim)
-        for dim in dims:
-            chunks[dim] = "auto"
-        with dask.config.set({"array.chunk-size": target_chunk_size}):
+        for dim in da.dims:
+            if dim == auto_chunk_dim:
+                chunks[dim] = "auto"
+            elif dim in already_autochunked_dims:
+                chunks[dim] = None
+            else:
+                chunks[dim] = -1
+        with dask.config.set({"array.chunk-size": self.target_chunk_size}):
             return da.chunk(chunks)
+
+    def rechunk_da(self, da):
+        # Iteratively rechunk DataArray over one dimension at a time to ensure
+        # that rechunking occurs preferentially in the following order:
+        # 1. Over dimensions specified in auto_rechunk_dims.
+        # 2. Over the remaining dimensions, in the order that they appear in
+        #    the DataArray.
+        rechunking_order = []
+        for dim in self.auto_chunk_dims:
+            if dim in da.dims:
+                rechunking_order.append(dim)
+        for dim in da.dims:
+            if dim not in self.auto_chunk_dims:
+                rechunking_order.append(dim)
+
+        already_autochunked_dims = []
+        for dim in rechunking_order:
+            da = self._rechunk_da(da, dim, already_autochunked_dims)
+            already_autochunked_dims.append(dim)
+        return da
 
     def rechunk_variables(self, ds, variables):
         rechunked = {}
         for variable in variables:
-            rechunked[variable] = self.rechunk_da(ds[variable], self.target_chunk_size)
+            rechunked[variable] = self.rechunk_da(ds[variable])
         return ds.assign(rechunked)
 
     def rechunk(self, ds):
