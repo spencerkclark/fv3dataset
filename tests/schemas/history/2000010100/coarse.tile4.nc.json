@@ -1,0 +1,341 @@
+{
+    "version": "v3",
+    "schema": {
+        "coords": {
+            "grid_xt_coarse": {
+                "name": "grid_xt_coarse",
+                "dims": [
+                    "grid_xt_coarse"
+                ],
+                "value": [
+                    1.0,
+                    2.0,
+                    3.0,
+                    4.0,
+                    5.0,
+                    6.0
+                ],
+                "attrs": {}
+            },
+            "grid_yt_coarse": {
+                "name": "grid_yt_coarse",
+                "dims": [
+                    "grid_yt_coarse"
+                ],
+                "value": [
+                    1.0,
+                    2.0,
+                    3.0,
+                    4.0,
+                    5.0,
+                    6.0
+                ],
+                "attrs": {}
+            },
+            "nv": {
+                "name": "nv",
+                "dims": [
+                    "nv"
+                ],
+                "value": [
+                    1.0,
+                    2.0
+                ],
+                "attrs": {}
+            },
+            "time": {
+                "name": "time",
+                "dims": [
+                    "time"
+                ],
+                "value": [
+                    "2000-01-01T00:00:00",
+                    "2000-01-01T06:00:00",
+                    "2000-01-01T12:00:00",
+                    "2000-01-01T18:00:00",
+                    "2000-01-02T00:00:00",
+                    "2000-01-02T06:00:00",
+                    "2000-01-02T12:00:00",
+                    "2000-01-02T18:00:00"
+                ],
+                "attrs": {}
+            },
+            "pfull": {
+                "name": "pfull",
+                "dims": [
+                    "pfull"
+                ],
+                "value": [
+                    0.0,
+                    142.85714285714286,
+                    285.7142857142857,
+                    428.57142857142856,
+                    571.4285714285714,
+                    714.2857142857143,
+                    857.1428571428571,
+                    1000.0
+                ],
+                "attrs": {}
+            },
+            "phalf": {
+                "name": "phalf",
+                "dims": [
+                    "phalf"
+                ],
+                "value": [
+                    0.0,
+                    125.0,
+                    250.0,
+                    375.0,
+                    500.0,
+                    625.0,
+                    750.0,
+                    875.0,
+                    1000.0
+                ],
+                "attrs": {}
+            },
+            "plev": {
+                "name": "plev",
+                "dims": [
+                    "plev"
+                ],
+                "value": [
+                    0.0,
+                    250.0,
+                    500.0,
+                    750.0,
+                    1000.0
+                ],
+                "attrs": {}
+            }
+        },
+        "variables": {
+            "static_2d": {
+                "name": "static_2d",
+                "dims": [
+                    "grid_xt_coarse",
+                    "grid_yt_coarse"
+                ],
+                "array": {
+                    "shape": [
+                        6,
+                        6
+                    ],
+                    "dtype": "<f8",
+                    "chunks": [
+                        6,
+                        6
+                    ]
+                },
+                "attrs": {
+                    "units": "units of static_2d",
+                    "long_name": "long_name of static_2d"
+                }
+            },
+            "time_bounds": {
+                "name": "time_bounds",
+                "dims": [
+                    "nv",
+                    "time"
+                ],
+                "array": {
+                    "shape": [
+                        2,
+                        8
+                    ],
+                    "dtype": "|O",
+                    "chunks": [
+                        2,
+                        8
+                    ]
+                },
+                "attrs": {}
+            },
+            "time_varying_2d": {
+                "name": "time_varying_2d",
+                "dims": [
+                    "time",
+                    "grid_xt_coarse",
+                    "grid_yt_coarse"
+                ],
+                "array": {
+                    "shape": [
+                        8,
+                        6,
+                        6
+                    ],
+                    "dtype": "<f8",
+                    "chunks": [
+                        8,
+                        6,
+                        6
+                    ]
+                },
+                "attrs": {
+                    "units": "units of time_varying_2d",
+                    "long_name": "long_name of time_varying_2d"
+                }
+            },
+            "static_pfull_3d": {
+                "name": "static_pfull_3d",
+                "dims": [
+                    "pfull",
+                    "grid_xt_coarse",
+                    "grid_yt_coarse"
+                ],
+                "array": {
+                    "shape": [
+                        8,
+                        6,
+                        6
+                    ],
+                    "dtype": "<f8",
+                    "chunks": [
+                        8,
+                        6,
+                        6
+                    ]
+                },
+                "attrs": {
+                    "units": "units of static_pfull_3d",
+                    "long_name": "long_name of static_pfull_3d"
+                }
+            },
+            "static_phalf_3d": {
+                "name": "static_phalf_3d",
+                "dims": [
+                    "phalf",
+                    "grid_xt_coarse",
+                    "grid_yt_coarse"
+                ],
+                "array": {
+                    "shape": [
+                        9,
+                        6,
+                        6
+                    ],
+                    "dtype": "<f8",
+                    "chunks": [
+                        9,
+                        6,
+                        6
+                    ]
+                },
+                "attrs": {
+                    "units": "units of static_phalf_3d",
+                    "long_name": "long_name of static_phalf_3d"
+                }
+            },
+            "static_plev_3d": {
+                "name": "static_plev_3d",
+                "dims": [
+                    "plev",
+                    "grid_xt_coarse",
+                    "grid_yt_coarse"
+                ],
+                "array": {
+                    "shape": [
+                        5,
+                        6,
+                        6
+                    ],
+                    "dtype": "<f8",
+                    "chunks": [
+                        5,
+                        6,
+                        6
+                    ]
+                },
+                "attrs": {
+                    "units": "units of static_plev_3d",
+                    "long_name": "long_name of static_plev_3d"
+                }
+            },
+            "time_varying_pfull_3d": {
+                "name": "time_varying_pfull_3d",
+                "dims": [
+                    "pfull",
+                    "time",
+                    "grid_xt_coarse",
+                    "grid_yt_coarse"
+                ],
+                "array": {
+                    "shape": [
+                        8,
+                        8,
+                        6,
+                        6
+                    ],
+                    "dtype": "<f8",
+                    "chunks": [
+                        8,
+                        8,
+                        6,
+                        6
+                    ]
+                },
+                "attrs": {
+                    "units": "units of time_varying_pfull_3d",
+                    "long_name": "long_name of time_varying_pfull_3d"
+                }
+            },
+            "time_varying_phalf_3d": {
+                "name": "time_varying_phalf_3d",
+                "dims": [
+                    "phalf",
+                    "time",
+                    "grid_xt_coarse",
+                    "grid_yt_coarse"
+                ],
+                "array": {
+                    "shape": [
+                        9,
+                        8,
+                        6,
+                        6
+                    ],
+                    "dtype": "<f8",
+                    "chunks": [
+                        9,
+                        8,
+                        6,
+                        6
+                    ]
+                },
+                "attrs": {
+                    "units": "units of time_varying_phalf_3d",
+                    "long_name": "long_name of time_varying_phalf_3d"
+                }
+            },
+            "time_varying_plev_3d": {
+                "name": "time_varying_plev_3d",
+                "dims": [
+                    "plev",
+                    "time",
+                    "grid_xt_coarse",
+                    "grid_yt_coarse"
+                ],
+                "array": {
+                    "shape": [
+                        5,
+                        8,
+                        6,
+                        6
+                    ],
+                    "dtype": "<f8",
+                    "chunks": [
+                        5,
+                        8,
+                        6,
+                        6
+                    ]
+                },
+                "attrs": {
+                    "units": "units of time_varying_plev_3d",
+                    "long_name": "long_name of time_varying_plev_3d"
+                }
+            }
+        }
+    }
+}

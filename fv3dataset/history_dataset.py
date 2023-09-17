@@ -266,7 +266,6 @@ class HistoryDataset:
             return targeted_open_mfdataset(
                 filenames,
                 self.time_varying_coordinates,
-                concat_dim=[self.time_dim],
                 combine="by_coords",
             ).load()
 
@@ -302,7 +301,9 @@ class HistoryDataset:
         try:
             import xpartition  # noqa
         except ImportError:
-            raise ImportError("Using _write_partition requires xpartition be installed.")
+            raise ImportError(
+                "Using _write_partition requires xpartition be installed."
+            )
         if variables:
             ds = self.to_dask()[variables]
             sample = variables[0]
