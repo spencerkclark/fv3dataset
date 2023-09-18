@@ -1,5 +1,6 @@
 import os
 
+import numpy as np
 import pytest
 import synth
 
@@ -9,10 +10,11 @@ from fv3dataset import HistoryDataset
 
 
 TIME_DIM = "time"
-LOCAL_DIRECTORY = Path(os.path.dirname(__file__))
+LOCAL_DIRECTORY = Path(__file__).parent
 HISTORY_SCHEMAS = LOCAL_DIRECTORY / "schemas" / "history"
 HISTORY_TIMESTAMPS = ["2000010100", "2000010300"]
 TAPES = ["fine", "coarse", "static"]
+TARGET_CHUNK_SIZE_BYTES = 10_000
 
 
 def generate_synthetic_history_dataset(root):
@@ -43,7 +45,7 @@ def history_dataset(tape, synthetic_history_dataset):
     for timestamp in HISTORY_TIMESTAMPS:
         directory = synthetic_history_dataset / timestamp
         directories.append(directory)
-    return HistoryDataset(tape, directories, target_chunk_size="0.01Mi")
+    return HistoryDataset(tape, directories, target_chunk_size=TARGET_CHUNK_SIZE_BYTES)
 
 
 def test_history_dataset_tape(tape, history_dataset):
@@ -172,6 +174,13 @@ def test_history_dataset_unchunked_variables(history_dataset):
     assert result == expected
 
 
+def compute_first_chunk_size_bytes(da):
+    """Return the size of the first chunk of the DataArray in bytes"""
+    chunks = da.chunks
+    first_sizes = [s for s, *_ in chunks]
+    return da.data.itemsize * np.prod(first_sizes)
+
+
 def test_history_dataset_to_dask(history_dataset):
     ds = history_dataset.to_dask()
 
@@ -187,4 +196,14 @@ def test_history_dataset_to_dask(history_dataset):
         else:
             assert "tile" in da.dims
 
-    # TODO: test the chunk sizes are as expected.
+    # Check that the size of the first chunk of chunked DataArray is at
+    # least within a factor of two of the prescribed chunk size.
+    for var in history_dataset.chunked_variables:
+        da = ds[var]
+        first_chunk_size_bytes = compute_first_chunk_size_bytes(da)
+        assert (
+            first_chunk_size_bytes > TARGET_CHUNK_SIZE_BYTES // 2
+        ), f"chunk size of {var} is less than half of prescribed value"
+        assert (
+            first_chunk_size_bytes <= TARGET_CHUNK_SIZE_BYTES
+        ), f"chunk size of {var} exceeds prescribed value"
