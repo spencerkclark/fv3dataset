@@ -13,3 +13,4 @@ dependencies:
     - coveralls
     - git+https://github.com/ai2cm/fv3net.git@c385103607eea718905846807295621e8ebc5033#egg=synth&subdirectory=external/synth
     - pytest-cov
+  
