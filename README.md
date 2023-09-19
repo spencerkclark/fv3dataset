@@ -1,5 +1,7 @@
 # fv3dataset
 
+[![tests](https://github.com/spencerkclark/fv3dataset/actions/workflows/tests.yaml/badge.svg)](https://github.com/spencerkclark/fv3dataset/actions/workflows/tests.yaml)
+
 This is a library meant for interacting with data produced by running SHiELD.
 SHiELD outputs can sometimes be complicated to deal with, because outputs for
 specific variables are distributed across multiple tile and/or subtile files,
